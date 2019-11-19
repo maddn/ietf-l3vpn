@@ -1,0 +1,413 @@
+<config-template xmlns="http://tail-f.com/ns/config/1.0"
+  servicepoint="l3vpn-ntw-site">
+  <devices xmlns="http://tail-f.com/ns/ncs">
+
+    <device tags="nocreate">
+      <name>{/ce/device}</name>
+      <config tags="merge">
+
+        <!-- CE template for Cisco IOS routers -->
+        <interface xmlns="urn:ios">
+          <GigabitEthernet tags="merge">
+            <name>{link/interface-number}.{../pe-ce-link/vlan-id}</name>
+            <description tags="merge">Link to {../pe/device}</description>
+            <encapsulation>
+              <dot1Q>
+                <vlan-id>{../pe-ce-link/vlan-id}</vlan-id>
+              </dot1Q>
+            </encapsulation>
+            <ip tags="merge">
+              <address>
+                <primary>
+                  <address>{link/ip-address}</address>
+                  <mask>{../pe-ce-link/link-mask}</mask>
+                </primary>
+              </address>
+            </ip>
+            <service-policy>
+              <output>{/vpn-id}</output>
+            </service-policy>
+          </GigabitEthernet>
+          <GigabitEthernet tags="nocreate" when="local/interface-number">
+            <name>{local/interface-number}</name>
+            <description tags="merge">Local network</description>
+            <ip tags="merge">
+              <address>
+                <primary>
+                  <address>{ip-address}</address>
+                  <mask>{mask}</mask>
+                </primary>
+              </address>
+            </ip>
+          </GigabitEthernet>
+        </interface>
+        <policy-map xmlns="urn:ios" tags="merge">
+          <name>{/vpn-id}</name>
+          <class>
+            <name>class-default</name>
+            <shape>
+              <average>
+                <bit-rate>{bandwidth}</bit-rate>
+              </average>
+            </shape>
+          </class>
+        </policy-map>
+        <router xmlns="urn:ios">
+          <bgp>
+            <as-no>{as-number}</as-no>
+            <neighbor>
+              <id>{../pe/link/ip-address}</id>
+              <remote-as>{../as-number}</remote-as>
+              <activate/>
+            </neighbor>
+            <neighbor>
+              <id>{../customer/ip-address}</id>
+              <remote-as>{as-number}</remote-as>
+              <activate/>
+            </neighbor>
+            <redistribute>
+              <connected>
+              </connected>
+            </redistribute>
+          </bgp>
+        </router>
+
+      </config>
+    </device>
+
+    <device tags="nocreate">
+      <name>{pe/device}</name>
+      <config tags="merge">
+
+        <!-- PE template for Cisco IOS routers -->
+        <vrf xmlns="urn:ios">
+          <definition>
+            <name>{string(/vpn-id)}</name>
+            <rd>{route-distinguisher}</rd>
+            <route-target>
+              <export>
+                <asn-ip>{route-target}</asn-ip>
+              </export>
+              <import>
+                <asn-ip>{router-target}</asn-ip>
+              </import>
+            </route-target>
+          </definition>
+        </vrf>
+        <interface xmlns="urn:ios" tags="merge">
+          <GigabitEthernet>
+            <name>{link/interface-number}.{../pe-ce-link/vlan-id}</name>
+            <description tags="merge">Link to {../ce/device}</description>
+            <encapsulation>
+              <dot1Q>
+                <vlan-id>{../pe-ce-link/vlan-id}</vlan-id>
+              </dot1Q>
+            </encapsulation>
+            <ip tags="merge">
+              <address>
+                <primary>
+                  <address>{link/ip-address}</address>
+                  <mask>{../pe-ce-link/link-mask}</mask>
+                </primary>
+              </address>
+            </ip>
+            <vrf tags="merge">
+              <forwarding>{string(/vpn-id)}</forwarding>
+            </vrf>
+          </GigabitEthernet>
+        </interface>
+        <router xmlns="urn:ios" tags="merge">
+          <bgp>
+            <as-no>{as-number}</as-no>
+            <address-family>
+              <with-vrf>
+                <ipv4>
+                  <unicast-multicast>unicast</unicast-multicast>
+                  <vrf tags="merge">
+                    <name>{string(/vpn-id)}</name>
+                    <neighbor>
+                      <id>{../ce/link/ip-address}</id>
+                      <remote-as>{../as-number}</remote-as>
+                      <activate/>
+                      <as-override>
+                      </as-override>
+                    </neighbor>
+                  </vrf>
+                </ipv4>
+              </with-vrf>
+            </address-family>
+          </bgp>
+        </router>
+
+        <!-- PE template for Cisco IOS-XR routers -->
+        <vrf xmlns="http://tail-f.com/ned/cisco-ios-xr">
+          <vrf-list>
+            <name>{string(/vpn-id)}</name>
+            <rd>{route-distinguisher}</rd>
+            <address-family>
+              <ipv4>
+                <unicast>
+                  <import>
+                    <route-target>
+                      <address-list>
+                        <name>{route-target}</name>
+                      </address-list>
+                    </route-target>
+                  </import>
+                  <export>
+                    <route-target>
+                      <address-list>
+                        <name>{route-target}</name>
+                      </address-list>
+                    </route-target>
+                  </export>
+                </unicast>
+              </ipv4>
+            </address-family>
+          </vrf-list>
+        </vrf>
+        <policy-map xmlns="http://tail-f.com/ned/cisco-ios-xr" tags="merge">
+          <name>{/vpn-id}-{/ce/device}</name>
+          <class>
+            <class-default>
+              <map>class-default</map>
+              <shape>
+                <average>
+                  <rate>{/bandwidth}</rate>
+                  <rate-unit>bps</rate-unit>
+                </average>
+              </shape>
+            </class-default>
+          </class>
+        </policy-map>
+        <interface xmlns="http://tail-f.com/ned/cisco-ios-xr" tags="merge">
+          <GigabitEthernet-subinterface>
+            <GigabitEthernet>
+              <id>{link/interface-number}.{../pe-ce-link/vlan-id}</id>
+              <description tags="merge">Link to {../ce/device}</description>
+              <ipv4 tags="merge">
+                <address>
+                  <ip>{link/ip-address}</ip>
+                  <mask>{../pe-ce-link/link-mask}</mask>
+                </address>
+              </ipv4>
+              <vrf tags="merge">{string(/vpn-id)}</vrf>
+              <encapsulation>
+                <dot1q>
+                  <vlan-id>{../pe-ce-link/vlan-id}</vlan-id>
+                </dot1q>
+              </encapsulation>
+              <service-policy>
+                <output>
+                  <name>{/vpn-id}-{../ce/device}</name>
+                </output>
+              </service-policy>
+            </GigabitEthernet>
+          </GigabitEthernet-subinterface>
+        </interface>
+        <router xmlns="http://tail-f.com/ned/cisco-ios-xr" tags="merge">
+          <bgp>
+            <bgp-no-instance>
+              <id>{as-number}</id>
+              <vrf tags="merge">
+                <name>{string(/vpn-id)}</name>
+                <rd>{route-distinguisher}</rd>
+                <address-family>
+                  <ipv4>
+                    <unicast>
+                    </unicast>
+                  </ipv4>
+                </address-family>
+                <neighbor>
+                  <id>{../ce/link/ip-address}</id>
+                  <remote-as>{../as-number}</remote-as>
+                  <address-family>
+                    <ipv4>
+                      <unicast>
+                        <as-override>
+                        </as-override>
+                      </unicast>
+                    </ipv4>
+                  </address-family>
+                </neighbor>
+              </vrf>
+            </bgp-no-instance>
+          </bgp>
+        </router>
+      </config>
+    </device>
+
+    <!-- QoS -->
+
+    <?if {/qos-policy or /custom-qos-policy}?>
+      <?if {/qos-policy}?>
+        <?set-context-node {deref(/qos-policy)/..}?>
+      <?else?>
+        <?set-context-node {/custom-qos-policy}?>
+      <?end?>
+      <?set POLICY_NAME={name}?>
+
+      <device tags="nocreate">
+        <name>{string(/ce/device)}</name>
+        <config tags="merge">
+
+          <policy-map xmlns="urn:ios" tags="merge">
+            <name>{string(/vpn-id)}</name>
+            <class>
+              <name>class-default</name>
+              <service-policy>{name}</service-policy>
+            </class>
+          </policy-map>
+
+          <policy-map xmlns="urn:ios" tags="merge">
+            <name>{name}</name>
+            <class foreach="{class}">
+              <name>{qos-class}</name>
+              <priority when="{priority}">
+                <percent>{bandwidth-percentage}</percent>
+              </priority>
+              <bandwidth when="{not(priority)}">
+                <percent>{bandwidth-percentage}</percent>
+              </bandwidth>
+            </class>
+          </policy-map>
+        </config>
+      </device>
+
+      <device tags="nocreate">
+        <name>{string(/pe/device)}</name>
+        <config tags="merge">
+
+          <policy-map xmlns="http://tail-f.com/ned/cisco-ios-xr" tags="merge">
+            <name>{string(/vpn-id)}-{string(/ce/device)}</name>
+            <class>
+              <class-default>
+                <map>class-default</map>
+                <service-policy>
+                  <name>{name}</name>
+                </service-policy>
+              </class-default>
+            </class>
+          </policy-map>
+
+          <policy-map xmlns="http://tail-f.com/ned/cisco-ios-xr" tags="merge">
+            <name>{name}</name>
+            <class foreach="{class}">
+              <class-ref>
+                <map>{qos-class}</map>
+                <bandwidth>
+                  <bandwidth-units>
+                    <rate>{bandwidth-percentage}</rate>
+                  </bandwidth-units>
+                </bandwidth>
+                <priority when="{priority}">
+                  <level>1</level>
+                </priority>
+              </class-ref>
+            </class>
+          </policy-map>
+        </config>
+      </device>
+
+      <?set PREFIX=''?>
+      <?foreach {class}?>
+        <?for i=0; {$i < 2}; i={$i + 1}?>
+          <?if {$i = 0 and /../l3vpn-ntw:global-qos
+                           /qos-class[name=current()/qos-class]}?>
+            <?set PREFIX='global'?>
+            <?set-context-node {/../l3vpn-ntw:global-qos
+                                /qos-class[name=current()/qos-class]}?>
+          <?else?>
+            <?if {$i = 1 and /custom-qos-class[name=current()/qos-class]}?>
+              <?set PREFIX={/name}?>
+              <?set-context-node {/custom-qos-class[name=current()/qos-class]}?>
+            <?else?>
+              <?set PREFIX=''?>
+            <?end?>
+          <?end?>
+
+          <?if {$PREFIX}?>
+            <device tags="nocreate">
+              <name>{string(/ce/device)}</name>
+              <config tags="merge">
+
+                <policy-map xmlns="urn:ios" tags="merge" when="{dscp-value}">
+                  <name>{$POLICY_NAME}</name>
+                  <class>
+                    <name>{name}</name>
+                    <set>
+                      <ip>
+                        <dscp>{dscp-value}</dscp>
+                      </ip>
+                    </set>
+                  </class>
+                </policy-map>
+
+                <class-map xmlns="urn:ios" tags="merge">
+                  <name>{name}</name>
+                  <prematch>match-any</prematch>
+                  <match>
+                    <access-group foreach="{match-rule}">
+                      <name>{$PREFIX}-{name}</name>
+                    </access-group>
+                  </match>
+                </class-map>
+
+                <ip xmlns="urn:ios" tags="merge">
+                  <access-list>
+                    <extended>
+                      <ext-named-acl foreach="{match-rule}">
+                        <name>{$PREFIX}-{name}</name>
+                        <?set PORT_RANGE=''?>
+                        <?if {port-start}?>
+                          <?if {port-end}?>
+                            <?set PORT_RANGE={
+                              concat('range ', port-start, ' ', port-end)
+                            }?>
+                          <?else?>
+                            <?set PORT_RANGE={
+                              concat('range ', port-start, ' ', port-start)
+                            }?>
+                          <?end?>
+                        <?end?>
+
+                        <ext-access-list-rule>
+                          <rule>permit {protocol} {normalize-space(concat(
+                              source-ip-address, ' ',
+                              source-wildcard-mask, ' ',
+                              destination-ip-address, ' ',
+                              destination-wildcard-mask, ' ',
+                              $PORT_RANGE
+                            ))}</rule>
+                        </ext-access-list-rule>
+                      </ext-named-acl>
+                    </extended>
+                  </access-list>
+                </ip>
+
+              </config>
+            </device>
+
+            <device tags="nocreate">
+              <name>{string(/pe/device)}</name>
+              <config tags="merge">
+
+                <class-map xmlns="http://tail-f.com/ned/cisco-ios-xr"
+                           tags="merge" when="{dscp-value}">
+                  <name>{name}</name>
+                  <prematch>match-any</prematch>
+                  <match>
+                    <dscp>{dscp-value}</dscp>
+                  </match>
+                </class-map>
+
+              </config>
+            </device>
+          <?end?>
+
+        <?end?> <!-- global/custom loop -->
+      <?end?> <!-- class loop -->
+    <?end?> <!-- if QoS -->
+
+  </devices>
+</config-template>

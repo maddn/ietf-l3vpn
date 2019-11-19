@@ -1,0 +1,12 @@
+/ncs-cdb
+/state
+/logs
+/netsim
+
+/setup.mk
+/ncs.conf
+/storedstate
+
+.DS_Store
+*.fxs
+*.swp

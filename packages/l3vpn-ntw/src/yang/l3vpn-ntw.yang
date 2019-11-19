@@ -1,0 +1,165 @@
+module l3vpn-ntw {
+
+  namespace "http://com/example/l3vpn-ntw";
+  prefix l3vpn-ntw;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  import tailf-ncs {
+    prefix ncs;
+  }
+
+  include l3vpn-ntw-qos;
+  include l3vpn-ntw-topology;
+
+  typedef vlan-id-type {
+    type uint16 {
+      range "0..4096";
+    }
+  }
+
+  typedef asn-ip-type {
+    type string {
+      pattern
+        '(([0-9]+)|((([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}'
+      + '([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]))):[0-9]+';
+      tailf:info "ASN:nn or IP-address:nn";
+    }
+  }
+
+  grouping endpoint-grouping {
+    leaf interface-name {
+      tailf:info "Interface name. For example FastEthernet.";
+      type string;
+    }
+    leaf interface-number {
+      tailf:info "Interface number. For example 0 or 1/0";
+      type string;
+    }
+    leaf ip-address {
+      tailf:info "Local interface address.";
+      type inet:ipv4-address;
+    }
+  }
+
+  list l3vpn-ntw-site {
+    key name;
+    description "Layer3 RFS VPN";
+
+    leaf name {
+      tailf:info "Unique service id";
+      tailf:cli-allow-range;
+      type string;
+    }
+
+    uses ncs:service-data;
+    ncs:servicepoint  "l3vpn-ntw-site";
+
+    leaf vpn-id {
+      type string;
+    }
+
+    leaf bandwidth {
+      type uint32;
+    }
+
+    container customer {
+      leaf as-number {
+        type inet:as-number;
+      }
+      leaf ip-address {
+        type inet:ipv4-address;
+      }
+    }
+
+    container ce {
+      leaf device {
+        type leafref {
+          path "/ncs:devices/ncs:device/ncs:name";
+        }
+        mandatory true;
+      }
+      leaf as-number {
+        type inet:as-number;
+      }
+      container local {
+        uses endpoint-grouping;
+        leaf mask {
+          when '../ip-address';
+          type inet:ipv4-address;
+          mandatory true;
+        }
+      }
+      container link {
+        uses endpoint-grouping;
+      }
+    }
+
+    container pe {
+      leaf device {
+        type leafref {
+          path "/ncs:devices/ncs:device/ncs:name";
+        }
+        mandatory true;
+      }
+      leaf as-number {
+        type inet:as-number;
+      }
+      container link {
+        uses endpoint-grouping;
+      }
+      leaf route-distinguisher {
+        type asn-ip-type;
+      }
+      leaf route-target {
+        type asn-ip-type;
+      }
+    }
+
+    container pe-ce-link {
+      leaf link-mask {
+        type inet:ipv4-address;
+      }
+      leaf vlan-id {
+        tailf:info "dot1Q VLAN ID for sub interface.";
+        type vlan-id-type;
+      }
+    }
+
+    choice qos {
+      leaf qos-policy {
+        type leafref {
+          path "/global-qos/qos-policy/name";
+        }
+      }
+      container custom-qos-policy {
+        uses qos-policy-grouping;
+      }
+    }
+
+    list custom-qos-class {
+      key "name";
+      leaf name {
+        type string;
+        tailf:non-strict-leafref {
+          path "/global-qos/qos-class/name";
+        }
+      }
+      leaf dscp-value {
+        type inet:dscp;
+        must
+          "not(/global-qos/qos-class[name=current()/../name])" {
+          error-message
+            "The dscp-value is already configured in the global qos-class";
+        }
+      }
+      uses qos-class-match-grouping;
+    }
+  }
+}

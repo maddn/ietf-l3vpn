@@ -1,0 +1,64 @@
+<config-template xmlns="http://tail-f.com/ns/config/1.0">
+  <l3vpn-ntw-site xmlns="http://com/example/l3vpn-ntw">
+
+    <name>{site-network-access-id}</name>
+    <vpn-id>{vpn-attachment/vpn-id}</vpn-id>
+    <bandwidth>{service/svc-output-bandwidth}</bandwidth>
+
+    <customer>
+      <as-number>
+        {routing-protocols
+        /routing-protocol[type='l3vpn-svc:bgp']
+        /bgp/autonomous-system}
+      </as-number>
+      <ip-address>{ip-connection/ipv4/addresses/customer-address}</ip-address>
+    </customer>
+
+    <ce>
+      <device>{$CE}</device>
+      <as-number>{$CE_ASN}</as-number>
+      <local when="{ip-connection/ipv4/addresses/provider-address">
+        <interface-name>GigabitEthernet</interface-name>
+        <interface-number>0/2</interface-number>
+        <ip-address>{ip-connection/ipv4/addresses/provider-address}</ip-address>
+        <mask>{$LOCAL_MASK}</mask>
+      </local>
+      <link>
+        <interface-name>{$CE_INT_NAME}</interface-name>
+        <interface-number>{$CE_INT_NUMBER}</interface-number>
+        <ip-address>{$LINK_CE_ADR}</ip-address>
+      </link>
+    </ce>
+
+    <pe>
+      <device>{$PE}</device>
+      <as-number>{$PE_ASN}</as-number>
+      <link>
+        <interface-name>{$PE_INT_NAME}</interface-name>
+        <interface-number>{$PE_INT_NUMBER}</interface-number>
+        <ip-address>{$LINK_PE_ADR}</ip-address>
+      </link>
+      <route-distinguisher>{$ROUTE_DISTINGUISHER}</route-distinguisher>
+      <route-target>{$ROUTE_TARGET}</route-target>
+    </pe>
+
+    <pe-ce-link>
+      <vlan-id>{$VLAN_ID}</vlan-id>
+      <link-mask>{$LINK_MASK}</link-mask>
+    </pe-ce-link>
+
+    <?set-context-node {service/qos/qos-profile}?>
+    <qos-policy when="{profile}">{profile}</qos-policy>
+    <custom-qos-policy when="{classes}">
+      <name>custom-{/site-network-access-id}</name>
+      <class foreach="{classes/class}">
+        <qos-class>{class-id}</qos-class>
+        <bandwidth-percentage>
+          {round(bandwidth/guaranteed-bw-percent)}
+        </bandwidth-percentage>
+        <priority when="{latency/use-lowest-latency}" />
+      </class>
+    </custom-qos-policy>
+
+  </l3vpn-ntw-site>
+</config-template>

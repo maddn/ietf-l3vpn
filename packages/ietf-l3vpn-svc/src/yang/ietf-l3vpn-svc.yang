@@ -1,0 +1,620 @@
+module ietf-l3vpn-svc {
+ yang-version 1.1;
+ namespace "urn:ietf:params:xml:ns:yang:ietf-l3vpn-svc";
+ prefix l3vpn-svc;
+ import ietf-inet-types {
+  prefix inet;
+ }
+ import ietf-yang-types {
+  prefix yang;
+ }
+ import ietf-netconf-acm {
+  prefix nacm;
+ }
+ import tailf-ncs {
+   prefix ncs;
+ }
+ organization
+  "IETF L3SM Working Group";
+ contact
+  "WG List: <mailto:l3sm@ietf.org>
+   Editor:
+    L3SM WG
+   Chairs:
+    Adrian Farrel, Qin Wu
+  ";
+ description
+ "This YANG module defines a generic service configuration
+ model for Layer 3 VPNs. This model is common across all
+ vendor implementations.
+
+ Copyright (c) 2018 IETF Trust and the persons
+ identified as authors of the code.  All rights reserved.
+
+ Redistribution and use in source and binary forms, with or
+ without modification, is permitted pursuant to, and subject
+ to the license terms contained in, the Simplified BSD License
+ set forth in Section 4.c of the IETF Trust's Legal Provisions
+ Relating to IETF Documents
+ (https://trustee.ietf.org/license-info).
+
+ This version of this YANG module is part of RFC 8299; see
+ the RFC itself for full legal notices.";
+
+ revision 2019-10-09 {
+  description
+   "Simplified model and added NSO servicepoint";
+ }
+
+ revision 2018-01-19 {
+  description
+   "Revision of RFC 8049 to fix implementation issues.";
+  reference
+   "RFC 8299";
+  }
+ revision 2017-01-27 {
+  description
+  "Initial document.";
+  reference
+    "RFC 8049.";
+  }
+ /* Typedefs */
+ typedef svc-id {
+  type string;
+  description
+  "Defines a type of service component identifier.";
+ }
+ /* Identities */
+ identity routing-protocol-type {
+  description
+  "Base identity for routing protocol type.";
+ }
+ identity bgp {
+  base routing-protocol-type;
+  description
+  "Identity for BGP protocol type.";
+ }
+ identity protocol-type {
+  description
+  "Base identity for protocol field type.";
+ }
+ identity tcp {
+  base protocol-type;
+  description
+  "TCP protocol type.";
+ }
+ identity udp {
+  base protocol-type;
+  description
+  "UDP protocol type.";
+ }
+
+ identity icmp {
+  base protocol-type;
+  description
+  "ICMP protocol type.";
+ }
+ identity icmp6 {
+  base protocol-type;
+  description
+  "ICMPv6 protocol type.";
+ }
+ identity gre {
+  base protocol-type;
+  description
+  "GRE protocol type.";
+ }
+ identity ipip {
+  base protocol-type;
+  description
+  "IP-in-IP protocol type.";
+ }
+ identity hop-by-hop {
+  base protocol-type;
+  description
+  "Hop-by-Hop IPv6 header type.";
+ }
+ identity routing {
+  base protocol-type;
+  description
+  "Routing IPv6 header type.";
+ }
+ identity esp {
+  base protocol-type;
+  description
+  "ESP header type.";
+ }
+ identity ah {
+  base protocol-type;
+  description
+  "AH header type.";
+ }
+ identity qos-profile-direction {
+  description
+  "Base identity for QoS profile direction.";
+ }
+
+ identity site-to-wan {
+   base qos-profile-direction;
+   description
+   "Identity for Site-to-WAN direction.";
+ }
+ identity wan-to-site {
+   base qos-profile-direction;
+   description
+   "Identity for WAN-to-Site direction.";
+ }
+ identity both {
+   base qos-profile-direction;
+   description
+   "Identity for both WAN-to-Site direction
+   and Site-to-WAN direction.";
+ }
+
+ /* Groupings */
+ grouping operational-requirements-ops {
+   leaf actual-site-start {
+    type yang:date-and-time;
+    config false;
+     description
+     "Optional leaf indicating actual date and
+     time when the service at a particular site
+     actually started.";
+  }
+  leaf actual-site-stop {
+   type yang:date-and-time;
+   config false;
+     description
+     "Optional leaf indicating actual date and
+     time when the service at a particular site
+     actually stopped.";
+  }
+  description
+  "This grouping defines some operational
+  parameters.";
+ }
+ grouping flow-definition {
+  container match-flow {
+   leaf dscp {
+    type inet:dscp;
+     description
+     "DSCP value.";
+   }
+   leaf ipv4-src-prefix {
+    type inet:ipv4-prefix;
+     description
+     "Match on IPv4 src address.";
+   }
+   leaf ipv4-dst-prefix {
+    type inet:ipv4-prefix;
+     description
+     "Match on IPv4 dst address.";
+   }
+   container l4-dst-port-range {
+    leaf lower-port {
+     type inet:port-number;
+     description
+     "Lower boundary for port.";
+    }
+    leaf upper-port {
+     type inet:port-number;
+     must ". >= ../lower-port" {
+     description
+     "Upper boundary must be
+     higher than lower boundary.";
+     }
+     description
+     "Upper boundary for port.  If it exists,
+     upper boundary must be higher than lower
+     boundary.";
+    }
+    description
+    "Match on Layer 4 dst port range.  When only
+    lower-port is present, it represents a single
+    port.  When both lower-port and upper-port are
+    specified, it implies a range inclusive of both
+    values.";
+   }
+   leaf protocol-field {
+    type union {
+     type uint8;
+     type identityref {
+      base protocol-type;
+     }
+    }
+    description
+    "Match on IPv4 protocol or IPv6 Next Header field.";
+   }
+   description
+   "Describes flow-matching criteria.";
+  }
+  description
+  "Flow definition based on criteria.";
+ }
+ grouping site-service-basic {
+  leaf svc-output-bandwidth {
+   type uint64;
+   units bps;
+   mandatory true;
+     description
+     "From the customer site's perspective, the service
+     output bandwidth of the connection or upload
+     bandwidth from the site to the SP.";
+  }
+  description
+  "Defines basic service parameters for a site.";
+ }
+ grouping site-service-qos-profile {
+  container qos {
+   container qos-classification-policy {
+    list rule {
+     key id;
+     ordered-by user;
+     leaf id {
+      type string;
+      description
+      "A description identifying the
+       qos-classification-policy rule.";
+     }
+     choice match-type {
+      default match-flow;
+      case match-flow {
+      uses flow-definition;
+      }
+      description
+      "Choice for classification.";
+     }
+     leaf target-class-id {
+      type string;
+      description
+      "Identification of the class of service.
+      This identifier is internal to the administration.";
+     }
+     description
+     "List of marking rules.";
+    }
+    description
+    "Configuration of the traffic classification policy.";
+   }
+   container qos-profile {
+    choice qos-profile {
+     description
+     "Choice for QoS profile.
+     Can be standard profile or customized profile.";
+     case standard {
+      description
+      "Standard QoS profile.";
+      leaf profile {
+       type leafref {
+       path "/l3vpn-svc/vpn-profiles/valid-provider-identifiers"+
+           "/qos-profile-identifier/id";
+       }
+       description
+       "QoS profile to be used.";
+      }
+     }
+     case custom {
+      description
+      "Customized QoS profile.";
+       container classes {
+        list class {
+         key class-id;
+         leaf class-id {
+         type string;
+                  description
+                  "Identification of the class of service.
+                  This identifier is internal to the
+                  administration.";
+         }
+        container latency {
+         choice flavor {
+          case lowest {
+           leaf use-lowest-latency {
+            type empty;
+             description
+             "The traffic class should use the path with the
+             lowest latency.";
+           }
+          }
+          description
+          "Latency constraint on the traffic class.";
+         }
+         description
+         "Latency constraint on the traffic class.";
+        }
+        container bandwidth {
+         leaf guaranteed-bw-percent {
+          type decimal64 {
+                  fraction-digits 5;
+                  range "0..100";
+          }
+          units percent;
+          mandatory true;
+           description
+           "To be used to define the guaranteed bandwidth
+           as a percentage of the available service bandwidth.";
+         }
+         description
+         "Bandwidth constraint on the traffic class.";
+        }
+        description
+        "List of classes of services.";
+       }
+       description
+       "Container for list of classes of services.";
+      }
+     }
+    }
+    description
+    "QoS profile configuration.";
+   }
+   description
+   "QoS configuration.";
+  }
+  description
+  "This grouping defines QoS parameters for a site.";
+ }
+ grouping site-routing {
+  container routing-protocols {
+   list routing-protocol {
+    key type;
+    leaf type {
+     type identityref {
+      base routing-protocol-type;
+     }
+     description
+     "Type of routing protocol.";
+    }
+    container bgp {
+     when "derived-from-or-self(../type, 'l3vpn-svc:bgp')" {
+      description
+      "Only applies when protocol is BGP.";
+     }
+     leaf autonomous-system {
+      type uint32;
+      mandatory true;
+         description
+         "Customer AS number in case the customer
+         requests BGP routing.";
+     }
+     description
+     "BGP-specific configuration.";
+    }
+    description
+    "List of routing protocols used on
+    the site.  This list can be augmented.";
+   }
+   description
+   "Defines routing protocols.";
+  }
+  description
+  "Grouping for routing protocols.";
+ }
+ grouping site-attachment-ip-connection {
+   container ip-connection {
+    container ipv4 {
+     container addresses {
+      leaf provider-address {
+       type inet:ipv4-address;
+          description
+          "IPv4 Address List of the provider side.
+          When the protocol allocation type is static,
+          the provider address must be configured.";
+      }
+      leaf customer-address {
+       type inet:ipv4-address;
+          description
+          "IPv4 Address of customer side.";
+      }
+      leaf prefix-length {
+       type uint8 {
+        range "0..32";
+       }
+      description
+      "Subnet prefix length expressed in bits.
+      It is applied to both provider-address
+      and customer-address.";
+      }
+      description
+      "Describes IPv4 addresses used.";
+     }
+     description
+     "IPv4-specific parameters.";
+    }
+   description
+   "Defines connection parameters.";
+  }
+  description
+  "This grouping defines IP connection parameters.";
+ }
+ grouping site-devices {
+  container devices {
+   list device {
+    key device-id;
+    leaf device-id {
+     //type svc-id;
+     type leafref {
+      path "/ncs:devices/ncs:device/ncs:name";
+     }
+     must "/ncs:devices/ncs:device-group[ncs:name='C']/ncs:device-name[.=current()]";
+     description
+     "Identifier for the device.";
+    }
+    description
+    "List of devices requested by customer.";
+   }
+   description
+   "Device configuration.";
+  }
+  description
+  "Grouping for device allocation.";
+ }
+ grouping site-network-access-service {
+  container service {
+   uses site-service-basic;
+   uses site-service-qos-profile;
+   description
+   "Service parameters on the attachment.";
+  }
+  description
+  "Grouping for service parameters.";
+ }
+ grouping access-vpn-policy {
+  container vpn-attachment {
+   choice attachment-flavor {
+    case vpn-id {
+     leaf vpn-id {
+      type leafref {
+       path "/l3vpn-svc/vpn-services"+
+        "/vpn-service/vpn-id";
+      }
+      description
+      "Reference to an IP VPN.  Referencing a vpn-id provides
+      an easy way to attach a particular logical access to
+      a VPN.  In this case, vpn-id must be configured.";
+     }
+    }
+    mandatory true;
+    description
+    "Choice for VPN attachment flavor.  A choice is implemented
+    to allow the user to choose the flavor that provides the
+    best fit.";
+   }
+   description
+   "Defines VPN attachment of a site.";
+  }
+  description
+  "Defines the VPN attachment rules for
+  a site's logical access.";
+ }
+ grouping vpn-svc-cfg {
+  leaf vpn-id {
+   type svc-id;
+   description
+   "VPN identifier.  Local administration meaning.";
+  }
+  leaf customer-name {
+   type string;
+   description
+   "Name of the customer that actually uses the VPN service.
+   In the case that any intermediary (e.g., Tier-2 provider
+   or partner) sells the VPN service to their end user
+   on behalf of the original service provider (e.g., Tier-1
+   provider), the original service provider may require the
+   customer name to provide smooth activation/commissioning
+   and operation for the service.";
+  }
+  description
+  "Grouping for VPN service configuration.";
+ }
+ grouping vpn-profile-cfg {
+  container valid-provider-identifiers {
+   list qos-profile-identifier {
+    key id;
+    leaf id {
+     type string;
+     description
+     "Identification of the QoS Profile to be used.
+     Local administration meaning.";
+    }
+    description
+    "List for QoS Profile Identifiers.";
+   }
+     nacm:default-deny-write;
+     description
+     "Container for Valid Provider Identifies.";
+  }
+   description
+   "Grouping for VPN Profile configuration.";
+ }
+ grouping site-top-level-cfg {
+  uses site-devices;
+  description
+  "Grouping for site top-level configuration.";
+ }
+ grouping site-network-access-top-level-cfg {
+  choice location-flavor {
+   case device {
+     description
+     "Applicable only for provider-managed or co-managed device.";
+    leaf device-reference {
+     type leafref {
+      path "../../../devices/device/device-id";
+     }
+     description
+     "Identifier of CE to use.";
+    }
+   }
+   mandatory true;
+   description
+   "Choice of how to describe the site's location.";
+  }
+  uses site-attachment-ip-connection;
+  uses site-network-access-service;
+  uses site-routing;
+  uses access-vpn-policy;
+  description
+  "Grouping for site network access top-level configuration.";
+ }
+ /* Main blocks */
+ container l3vpn-svc {
+  container vpn-profiles {
+   uses vpn-profile-cfg;
+    description
+    "Container for VPN Profiles.";
+  }
+  container vpn-services {
+   list vpn-service {
+    key vpn-id;
+    uses vpn-svc-cfg;
+    description
+    "List of VPN services.";
+   }
+   description
+   "Top-level container for the VPN services.";
+  }
+  container sites {
+   list site {
+    key site-id;
+    leaf site-id {
+     type svc-id;
+     description
+     "Identifier of the site.";
+    }
+
+    uses ncs:service-data;
+    ncs:servicepoint ietf-l3vpn-site;
+
+    uses site-top-level-cfg;
+    uses operational-requirements-ops;
+    container site-network-accesses {
+     list site-network-access {
+      key site-network-access-id;
+      leaf site-network-access-id {
+       type svc-id;
+       description
+       "Identifier for the access.";
+      }
+
+      leaf deploy {
+        type boolean;
+        default false;
+      }
+
+      uses site-network-access-top-level-cfg;
+      description
+      "List of accesses for a site.";
+     }
+     description
+     "List of accesses for a site.";
+    }
+    description
+    "List of sites.";
+   }
+   description
+   "Container for sites.";
+  }
+  description
+  "Main container for L3VPN service configuration.";
+ }
+}

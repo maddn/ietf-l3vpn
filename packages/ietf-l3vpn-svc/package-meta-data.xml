@@ -1,0 +1,22 @@
+<ncs-package xmlns="http://tail-f.com/ns/ncs-packages">
+  <name>ietf-l3vpn-svc</name>
+  <package-version>1.0</package-version>
+  <description>
+    Example service for the IETF L3VPN model (RFC 8299), implemented in Python
+  </description>
+  <ncs-min-version>5.0</ncs-min-version>
+
+  <!-- It's possible to add more components to the -->
+  <!-- same package, multiple services, data providers etc -->
+
+  <required-package>
+    <name>resource-manager</name>
+  </required-package>
+
+  <component>
+    <name>main</name>
+    <application>
+      <python-class-name>ietf_l3vpn_svc.main.Main</python-class-name>
+    </application>
+  </component>
+</ncs-package>

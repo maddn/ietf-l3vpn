@@ -1,0 +1,27 @@
+<config-template xmlns="http://tail-f.com/ns/config/1.0">
+  <l3vpn-ntw-site xmlns="http://com/example/l3vpn-ntw">
+    <name>{$SITE_ID}</name>
+    <custom-qos-class>
+
+      <name>{target-class-id}</name>
+      <dscp-value>{match-flow/dscp}</dscp-value>
+      <match-rule>
+        <name>{id}</name>
+
+        <?set-context-node {match-flow}?>
+        <protocol>{substring(protocol-field, 11)}</protocol>
+        <source-ip-address>{$SOURCE_IP_ADDRESS}</source-ip-address>
+        <source-wildcard-mask when="{$SOURCE_IP_ADDRESS != 'any'}">
+          {$SOURCE_WILDCARD_MASK}
+        </source-wildcard-mask>
+        <destination-ip-address>{$DEST_IP_ADDRESS}</destination-ip-address>
+        <destination-wildcard-mask when="{$DEST_IP_ADDRESS != 'any'}">
+          {$DEST_WILDCARD_MASK}
+        </destination-wildcard-mask>
+        <port-start>{l4-dst-port-range/lower-port}</port-start>
+        <port-end>{l4-dst-port-range/upper-port}</port-end>
+
+      </match-rule>
+    </custom-qos-class>
+  </l3vpn-ntw-site>
+</config-template>

@@ -1,0 +1,119 @@
+submodule l3vpn-ntw-qos {
+
+  belongs-to l3vpn-ntw {
+    prefix l3vpn-ntw;
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  typedef qos-ipv4-address-match-type {
+    type union {
+      type inet:ipv4-address;
+      type enumeration {
+        enum any;
+      }
+    }
+  }
+
+  typedef protocol-type {
+    type enumeration {
+      enum icmp;
+      enum igmp;
+      enum ipip;
+      enum tcp;
+      enum egp;
+      enum udp;
+      enum rsvp;
+      enum gre;
+      enum esp;
+      enum ah;
+      enum icmp6;
+      enum ospf;
+      enum pim;
+      enum sctp;
+    }
+  }
+
+  grouping qos-policy-grouping {
+    leaf name {
+      type string;
+    }
+    list class {
+      key "qos-class";
+      leaf qos-class {
+        type string;
+        tailf:non-strict-leafref {
+          path "/global-qos/qos-class/name";
+        }
+      }
+      leaf bandwidth-percentage {
+        type uint32;
+      }
+      leaf priority {
+        type empty;
+      }
+    }
+  }
+
+  grouping qos-class-match-grouping {
+    list match-rule {
+      key "name";
+      ordered-by user;
+      leaf name {
+        type string;
+      }
+      leaf protocol {
+        tailf:info "Source IP protocol";
+        type string;
+      }
+      leaf source-ip-address {
+        type qos-ipv4-address-match-type;
+      }
+      leaf source-wildcard-mask {
+        when "../source-ip-address != 'any'";
+        type inet:ipv4-address;
+      }
+      leaf destination-ip-address {
+        type qos-ipv4-address-match-type;
+      }
+      leaf destination-wildcard-mask {
+        when "../destination-ip-address != 'any'";
+        type inet:ipv4-address;
+      }
+      leaf port-start {
+        tailf:info "Destination IP port";
+        type inet:port-number;
+      }
+      leaf port-end {
+        tailf:info "Destination IP port";
+        type inet:port-number;
+        must ". >= ../port-start" {
+          error-message "Upper boundary must be higher than lower boundary.";
+        }
+      }
+    }
+  }
+
+  container global-qos {
+    list qos-policy {
+      key name;
+      uses qos-policy-grouping;
+    }
+    list qos-class {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf dscp-value {
+        type inet:dscp;
+      }
+      uses qos-class-match-grouping;
+    }
+  }
+}

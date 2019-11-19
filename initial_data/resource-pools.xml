@@ -1,0 +1,25 @@
+<config xmlns="http://tail-f.com/ns/config/1.0">
+  <resource-pools xmlns="http://tail-f.com/pkg/resource-allocator">
+    <id-pool xmlns="http://tail-f.com/pkg/id-allocator">
+      <name>vrf-id-pool</name>
+      <range>
+        <start>1</start>
+        <end>100</end>
+      </range>
+    </id-pool>
+    <id-pool xmlns="http://tail-f.com/pkg/id-allocator">
+      <name>topology-connections-vlan-id-pool</name>
+      <range>
+        <start>100</start>
+        <end>200</end>
+      </range>
+    </id-pool>
+    <ip-address-pool xmlns="http://tail-f.com/pkg/ipaddress-allocator">
+      <name>topology-connections-ip-address-pool</name>
+      <subnet>
+        <address>10.1.100.0</address>
+        <cidrmask>24</cidrmask>
+      </subnet>
+    </ip-address-pool>
+  </resource-pools>
+</config>

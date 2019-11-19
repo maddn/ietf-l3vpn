@@ -1,0 +1,6 @@
+<ncs-package xmlns="http://tail-f.com/ns/ncs-packages">
+  <name>l3vpn-ntw</name>
+  <package-version>1.0</package-version>
+  <description>Implementation for L3VPN network resource facing service - RFS</description>
+  <ncs-min-version>5.0</ncs-min-version>
+</ncs-package>
